@@ -28,6 +28,7 @@
 
 <script setup>
 import { useToast } from "vue-toastification";
+
 definePageMeta({
     middleware: 'guest'
 })
@@ -39,20 +40,32 @@ const formData = reactive({
 });
 const toast = useToast();
 const { authUser } = useAuth();
+const { public: { apiBase } } = useRuntimeConfig()
 async function login() {
-   
+
     try {
         loading.value = true;
-        const user = await $fetch('/api/auth/login', {
-            method: 'POST',
-            body: formData
+        await $fetch(`${apiBase}/sanctum/csrf-cookie`, {
+            credentials: 'include',
         })
 
-        authUser.value = user;
+        const xsrfToken = useCookie('XSRF-TOKEN');
+
+
+        const data = await $fetch(`${apiBase}/login`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'X-XSRF-TOKEN': xsrfToken.value
+            }
+        })
+        authUser.value = data.user;
         toast.success("You are logged in!");
         return navigateTo('/')
     } catch (error) {
-        errors.value = Object.values(error.data.data).flat();
+        errors.value = Object.values(error.data).flat();
     } finally {
         loading.value = false;
     }
